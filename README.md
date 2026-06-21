@@ -1,5 +1,13 @@
 # EduGuard BW
 
+[![CI](https://github.com/haydarkozat/eduguard-bw/actions/workflows/ci.yml/badge.svg)](https://github.com/haydarkozat/eduguard-bw/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.11](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Next.js](https://img.shields.io/badge/Next.js-000000?logo=next.js&logoColor=white)](https://nextjs.org/)
+[![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![Self-hosted](https://img.shields.io/badge/100%25-self--hosted-10b981)](#-self-hosting--gdpr)
+
 > **GDPR-compliant, fully self-hosted School IT Network Monitoring & AI Triage** — a mini-SOC for schools in Baden-Württemberg. Network logs, IT tickets, and LLM inference all stay on-premises. **No data ever leaves the network.**
 
 ![Dashboard](docs/screenshots/01-dashboard-hero.png)
