@@ -1,0 +1,124 @@
+# EduGuard BW — Self-hosted, GDPR-compliant School IT Monitoring & AI Triage
+# Everything runs locally. No data leaves the network boundary.
+version: "3.9"
+
+services:
+  # -------------------------------------------------------------------------
+  # PostgreSQL — network logs + IT ticket states
+  # -------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: eduguard-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-eduguard}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-eduguard_dev_pw}
+      POSTGRES_DB: ${POSTGRES_DB:-eduguard}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-eduguard}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - eduguard-net
+
+  # -------------------------------------------------------------------------
+  # Qdrant — vector DB for RAG-based IT knowledge retrieval
+  # -------------------------------------------------------------------------
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: eduguard-qdrant
+    restart: unless-stopped
+    ports:
+      - "${QDRANT_HOST_PORT:-6333}:6333"   # REST/HTTP API
+      - "${QDRANT_GRPC_HOST_PORT:-6334}:6334"   # gRPC API
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - eduguard-net
+
+  # -------------------------------------------------------------------------
+  # Ollama — local LLM inference (no external data leaks)
+  # -------------------------------------------------------------------------
+  ollama:
+    image: ollama/ollama:latest
+    container_name: eduguard-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    # Pull a chat model AND the embedding model after first start, e.g.:
+    #   docker exec -it eduguard-ollama ollama pull llama3
+    #   docker exec -it eduguard-ollama ollama pull nomic-embed-text
+    # (nomic-embed-text powers Qdrant RAG; without it the backend falls back to
+    #  a deterministic local hash embedding, so the prototype still works.)
+    environment:
+      OLLAMA_KEEP_ALIVE: 24h
+    networks:
+      - eduguard-net
+
+  # -------------------------------------------------------------------------
+  # FastAPI backend — API, NIDS orchestration, AI triage
+  # -------------------------------------------------------------------------
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: eduguard-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      ollama:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-eduguard}:${POSTGRES_PASSWORD:-eduguard_dev_pw}@postgres:5432/${POSTGRES_DB:-eduguard}
+      QDRANT_URL: http://qdrant:6333
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3}
+      EMBED_MODEL: ${EMBED_MODEL:-nomic-embed-text}
+      # Scapy needs raw sockets. If the host can't grant CAP_NET_RAW, set
+      # EDUGUARD_SIMULATE=1 to use deterministic mock sweeps instead.
+      EDUGUARD_SIMULATE: ${EDUGUARD_SIMULATE:-0}
+    # Raw-socket capabilities for the Scapy NIDS sweep (ARP + SYN probes).
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
+    ports:
+      - "${BACKEND_HOST_PORT:-8000}:8000"
+    networks:
+      - eduguard-net
+
+  # -------------------------------------------------------------------------
+  # Next.js frontend — dashboard
+  # -------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: eduguard-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:${BACKEND_HOST_PORT:-8000}
+    ports:
+      - "${FRONTEND_HOST_PORT:-3000}:3000"
+    networks:
+      - eduguard-net
+
+volumes:
+  postgres_data:
+  qdrant_data:
+  ollama_data:
+
+networks:
+  eduguard-net:
+    driver: bridge

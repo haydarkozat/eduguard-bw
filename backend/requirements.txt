@@ -1,0 +1,21 @@
+# --- Core API ---
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+
+# --- Network analysis (NIDS / anomaly detection) ---
+scapy==2.5.0
+
+# --- AI orchestration (local, no external calls) ---
+langgraph==0.2.28
+langchain-core==0.3.0
+langchain-ollama==0.2.0
+
+# --- Databases ---
+sqlalchemy==2.0.34
+psycopg2-binary==2.9.9
+qdrant-client==1.11.2
+
+# --- Utilities ---
+pydantic==2.9.0
+pydantic-settings==2.5.0
+python-dotenv==1.0.1
